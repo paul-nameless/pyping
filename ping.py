@@ -4,6 +4,7 @@ import os
 import socket
 import struct
 import select
+import sys
 import time
 
 
@@ -56,7 +57,7 @@ def receive_one_ping(my_socket, ID, timeout):
         recPacket, addr = my_socket.recvfrom(1024)
         icmpHeader = recPacket[20:28]
         type, code, checksum, packetID, sequence = struct.unpack(
-            "bbHHh", icmpHeader
+            "BBHHH", icmpHeader
         )
         # Filters out the echo request itself.
         # This can be tested by pinging 127.0.0.1
@@ -81,9 +82,8 @@ def send_one_ping(my_socket, dest_addr, ID):
     my_checksum = 0
 
     # Make a dummy heder with a 0 checksum.
-    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
+    header = struct.pack("BBHHH", ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
     bytesInDouble = struct.calcsize("d")
-    # data = (192 - bytesInDouble) * "Q"
     data = bytes((192 - bytesInDouble) * "Q", 'utf-8')
     data = struct.pack("d", time.time()) + data
 
@@ -93,7 +93,7 @@ def send_one_ping(my_socket, dest_addr, ID):
     # Now that we have the right checksum, we put that in. It's just easier
     # to make up a new header than to stuff it into the dummy.
     header = struct.pack(
-        "bbHHh", ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
+        "BBHHH", ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
     )
     packet = header + data
     # 1 is and icmp protocol: socket.getprotobyname("icmp")
@@ -168,7 +168,7 @@ def main():
     )
     parser.add_argument(
         '-c',
-        default=None,
+        default=sys.maxsize,
         dest='count',
         type=int,
         help='number of pings'
@@ -181,11 +181,10 @@ def main():
         help='interval between pings'
     )
     args = parser.parse_args()
-    verbose_ping(args.host, args.timeout, args.count, args.interval)
-    # verbose_ping("heise.de")
-    # verbose_ping("google.com")
-    # verbose_ping("a-test-url-taht-is-not-available.com")
-    # verbose_ping("192.168.1.1")
+    try:
+        verbose_ping(args.host, args.timeout, args.count, args.interval)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == '__main__':
